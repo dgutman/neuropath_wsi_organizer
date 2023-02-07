@@ -1,17 +1,12 @@
+import os
 import re
 import json
 
 # jsonSchema docs are here: https://python-jsonschema.readthedocs.io/en/stable/
 import jsonschema
 
-# girder_client docs are here: https://girder.readthedocs.io/en/stable/python-client.html#the-python-client-library
-import girder_client
 import brain_region_maps
 import pandas as pd
-
-import os
-
-# from functools import cache
 
 # TODO: add record of all seen collectionIDs and fileIDs so as to reduce number of things examined
 # ideally hash their content, etc. to make 1: 1 validation faster, etc.
@@ -89,9 +84,9 @@ stainAliasDict = {
 stainList = ["pTDP", "HE", "aBeta", "Ubiq", "Tau", "Biels", "Syn", "p62", "LFB", "FUS", "TDP-43", "GFAP"]
 
 patternList = [
-    "(?P<caseID>E*A*\d+-\d+)_(?P<blockID>A*\d+).(?P<stainID>.*)\.[svs|ndpi]",
-    "(?P<caseID>E*A*\d+-\d+)_(?P<stainID>.*)_(?P<blockID>\d+)\.[svs|ndpi]",
-    "(?P<caseID>E*A*\d+-\d+)_(?P<stainID>.*)_(?P<blockID>\d+\w)\.[svs|ndpi]",
+    "(?P<caseID>E*A*\d+-\d+)_(?P<blockID>A*\d+).(?P<stainID>.*)\..*_small\.jpg",
+    "(?P<caseID>E*A*\d+-\d+)_(?P<stainID>.*)_(?P<blockID>\d+)\..*_small\.jpg",
+    "(?P<caseID>E*A*\d+-\d+)_(?P<stainID>.*)_(?P<blockID>\d+\w)\..*_small\.jpg",
 ]
 adrcNamePatterns = [re.compile(pattern) for pattern in patternList]
 
@@ -119,7 +114,7 @@ def blankMetadata(gc, collectionID=None, folderID=None):
 def populateMetadata(gc, collectionID=None, folderID=None, outputFailed=False):
     """Accepts a single collectionID or folderID(s)"""
 
-    fileTypes = ["svs", "ndpi"]
+    fileTypes = ["jpg"]
 
     clinicalDF = None
 
@@ -347,9 +342,9 @@ def validateNPJson(schemaPath, jsonData):
 
 
 def auditMetadata(gc, collectionID=None, folderID=None, outputRecords=False):
-    """Used to generate summaries of existing values in metadata in order to remediate persistent errors"""
+    """Used to generate summaries of existing values in metadata in order to identify persistent patterns of errors"""
 
-    fileTypes = ["svs", "ndpi"]
+    fileTypes = ["jpg"]
 
     if collectionID is not None:
         folderID = getCollectionContents(gc, collectionID)
@@ -471,6 +466,7 @@ def getSummaryStats(gc, collectionID=None, folderID=None):
                             toReview.append(data)
 
     df = pd.DataFrame(toReview)
+    print(toReview)
     df = df[["_id", "baseParentId", "baseParentType", "year", "folderId", "folder_name", "lowerName", "state", "meta"]]
     df.to_csv("summaryStats.csv", index=False)
 
@@ -500,27 +496,6 @@ def getSummaryStats(gc, collectionID=None, folderID=None):
     folders.to_csv("stateCounts.csv", index=False)
 
     print(f"Valid Count {valid}\n\nInvalid Count: {invalid}\n\nControl Count: {control}")
-
-
-if __name__ == "__main__":
-    server = "candygram"
-    apiUrl = f"http://{server}.neurology.emory.edu:8080/api/v1"
-
-    # initializing connection with server via girder_client
-    gc = girder_client.GirderClient(apiUrl=apiUrl)
-
-    # authenticating connection to server
-    gc.authenticate(interactive=True)
-
-    # this is the folderID of the ADRC Collection
-    folderID, parentType = "638e2da11f75016b81fda12f", "collection"
-
-    # NOTE: .ProjectMetadata collection seems to have a copy of the json schema as its metadata
-    # perhaps in the future we just pull that and load it as the schema, so that we don't need it locally
-    schemaPath = "adrcNpSchema.json"
-# blankMetadata(collectionID=folderID)
-# populateMetadata(collectionID=folderID)
-# auditMetadata(collectionID=folderID, outputRecords=True)
 
 
 #  mapping of select items seen returned from girder_client api calls
