@@ -16,4 +16,7 @@ Cell by cell:
 3. Setting collection ID of interest
 4. This function actually pulls data, including existing metadata, and attempts to apply the current algorithm to the file/folder info. The results are then compared to the existing metadata, and the record is updated if there is a difference
 5. Generate summaries of existing values in metadata in order to identify persistent patterns of errors. Setting outputRecords to False will print a sample of the data which would otherwise be saved to csv if this is passed as True
-6. Bug from this point forward (getSummaryStats produces empty DF)
+6. Generates two files:
+
+- summaryStats (with columns [_id, baseParentId, baseParentType, year, folderId, folder_name, lowerName, state, meta])
+- stateCounts (with columns [case, year, valid, invalid, control])

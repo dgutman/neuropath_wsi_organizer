@@ -433,7 +433,7 @@ def getSummaryStats(gc, collectionID=None, folderID=None):
             for file in files:
 
                 fileName = file["name"]
-                fileTypes = ["svs", "ndpi"]
+                fileTypes = ["jpg"]
 
                 if any([fileName.endswith(val) for val in fileTypes]):
 
@@ -466,20 +466,18 @@ def getSummaryStats(gc, collectionID=None, folderID=None):
                             toReview.append(data)
 
     df = pd.DataFrame(toReview)
-    print(toReview)
     df = df[["_id", "baseParentId", "baseParentType", "year", "folderId", "folder_name", "lowerName", "state", "meta"]]
     df.to_csv("summaryStats.csv", index=False)
 
     folders = pd.DataFrame(df.value_counts(subset=["folder_name", "year", "state"]))
     folders.reset_index(inplace=True)
-    print(folders.head())
 
     stateList = ["valid", "invalid", "control"]
 
     folders[stateList] = None
     folders["uid"] = folders["folder_name"] + folders["year"]
 
-    folders.rename(columns={0: "count"}, inplace=True)
+    folders.rename(columns={0: "count", "folder_name": "case"}, inplace=True)
 
     uids = folders["uid"].unique().tolist()
 
