@@ -290,7 +290,13 @@ def cleanInitialMetadata(npMeta, debug=False, outputFailed=False):
                 brainMapNoBlockMap[caseID][blockID] += 1
 
         else:
-            npMeta["regionName"] = brm[blockID]
+            region = brm[blockID]
+            npMeta["regionName"] = region
+
+            abbr = brain_region_maps.RegionAbbreviations.get(region)
+
+            if abbr is not None:
+                npMeta["regionAbbreviation"] = abbr
 
     #  Case id fails to map in brain mapping -- generally due to typo
     else:
@@ -494,6 +500,24 @@ def getSummaryStats(gc, collectionID=None, folderID=None):
     folders.to_csv("stateCounts.csv", index=False)
 
     print(f"Valid Count {valid}\n\nInvalid Count: {invalid}\n\nControl Count: {control}")
+
+
+def getMissingBrainRegion():
+    summaryStats = "./summaryStats.csv"
+    if os.path.exists(summaryStats):
+        df = pd.read_csv(summaryStats)
+
+        metaData = df["meta"].map((lambda x: x.split("{")[-1] if not pd.isna(x) and "npSchema" in x else None))
+        metaData.dropna(inplace=True)
+
+        filt = metaData.map((lambda x: True if "regionName" in x else False))
+        filt = df.index.isin(metaData[~filt].index)
+
+        missingBrainRegion = df.loc[filt, "folder_name"].value_counts()
+        missingBrainRegion.name = "Count"
+        missingBrainRegion.index.name = "Case ID"
+
+        missingBrainRegion.to_csv("./missing_brain_regions_by_case_id.csv")
 
 
 #  mapping of select items seen returned from girder_client api calls

@@ -20,3 +20,5 @@ Cell by cell:
 
 - summaryStats (with columns [_id, baseParentId, baseParentType, year, folderId, folder_name, lowerName, state, meta])
 - stateCounts (with columns [case, year, valid, invalid, control])
+
+7. Uses the file generated from getSummaryStats to create a file which counts those images missing brain regions by case id
