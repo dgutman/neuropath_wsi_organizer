@@ -84,9 +84,9 @@ stainAliasDict = {
 stainList = ["pTDP", "HE", "aBeta", "Ubiq", "Tau", "Biels", "Syn", "p62", "LFB", "FUS", "TDP-43", "GFAP"]
 
 patternList = [
-    "(?P<caseID>E*A*\d+-\d+)_(?P<blockID>A*\d+).(?P<stainID>.*)\..*_small\.jpg",
-    "(?P<caseID>E*A*\d+-\d+)_(?P<stainID>.*)_(?P<blockID>\d+)\..*_small\.jpg",
-    "(?P<caseID>E*A*\d+-\d+)_(?P<stainID>.*)_(?P<blockID>\d+\w)\..*_small\.jpg",
+    "(?P<caseID>E*A*\d+-\d+)_(?P<blockID>\d+[a-zA-Z]?).(?P<stainID>.*)\..*_small\.jpg",
+    "(?P<caseID>E*A*\d+-\d+)_(?P<stainID>.*)_(?P<blockID>\d+[a-zA-Z]?)\..*_small\.jpg",
+    "(?P<caseID>E*A*\d+-\d+)_(?P<stainID>.*)_(?P<blockID>\d+[a-zA-Z]?)\..*_small\.jpg",
 ]
 adrcNamePatterns = [re.compile(pattern) for pattern in patternList]
 
