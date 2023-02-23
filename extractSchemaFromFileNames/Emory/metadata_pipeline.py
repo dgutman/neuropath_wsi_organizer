@@ -1,17 +1,12 @@
+import os
 import re
 import json
 
 # jsonSchema docs are here: https://python-jsonschema.readthedocs.io/en/stable/
 import jsonschema
 
-# girder_client docs are here: https://girder.readthedocs.io/en/stable/python-client.html#the-python-client-library
-import girder_client
 import brain_region_maps
 import pandas as pd
-
-import os
-
-# from functools import cache
 
 # TODO: add record of all seen collectionIDs and fileIDs so as to reduce number of things examined
 # ideally hash their content, etc. to make 1: 1 validation faster, etc.
@@ -89,9 +84,9 @@ stainAliasDict = {
 stainList = ["pTDP", "HE", "aBeta", "Ubiq", "Tau", "Biels", "Syn", "p62", "LFB", "FUS", "TDP-43", "GFAP"]
 
 patternList = [
-    "(?P<caseID>E*A*\d+-\d+)_(?P<blockID>A*\d+).(?P<stainID>.*)\.[svs|ndpi]",
-    "(?P<caseID>E*A*\d+-\d+)_(?P<stainID>.*)_(?P<blockID>\d+)\.[svs|ndpi]",
-    "(?P<caseID>E*A*\d+-\d+)_(?P<stainID>.*)_(?P<blockID>\d+\w)\.[svs|ndpi]",
+    "(?P<caseID>E*A*\d+-\d+)_(?P<blockID>A*\d+).(?P<stainID>.*)\..*_small\.jpg",
+    "(?P<caseID>E*A*\d+-\d+)_(?P<stainID>.*)_(?P<blockID>\d+)\..*_small\.jpg",
+    "(?P<caseID>E*A*\d+-\d+)_(?P<stainID>.*)_(?P<blockID>\d+\w)\..*_small\.jpg",
 ]
 adrcNamePatterns = [re.compile(pattern) for pattern in patternList]
 
@@ -119,7 +114,7 @@ def blankMetadata(gc, collectionID=None, folderID=None):
 def populateMetadata(gc, collectionID=None, folderID=None, outputFailed=False):
     """Accepts a single collectionID or folderID(s)"""
 
-    fileTypes = ["svs", "ndpi"]
+    fileTypes = ["jpg"]
 
     clinicalDF = None
 
@@ -295,7 +290,13 @@ def cleanInitialMetadata(npMeta, debug=False, outputFailed=False):
                 brainMapNoBlockMap[caseID][blockID] += 1
 
         else:
-            npMeta["regionName"] = brm[blockID]
+            region = brm[blockID]
+            npMeta["regionName"] = region
+
+            abbr = brain_region_maps.RegionAbbreviations.get(region)
+
+            if abbr is not None:
+                npMeta["regionAbbreviation"] = abbr
 
     #  Case id fails to map in brain mapping -- generally due to typo
     else:
@@ -347,9 +348,9 @@ def validateNPJson(schemaPath, jsonData):
 
 
 def auditMetadata(gc, collectionID=None, folderID=None, outputRecords=False):
-    """Used to generate summaries of existing values in metadata in order to remediate persistent errors"""
+    """Used to generate summaries of existing values in metadata in order to identify persistent patterns of errors"""
 
-    fileTypes = ["svs", "ndpi"]
+    fileTypes = ["jpg"]
 
     if collectionID is not None:
         folderID = getCollectionContents(gc, collectionID)
@@ -438,7 +439,7 @@ def getSummaryStats(gc, collectionID=None, folderID=None):
             for file in files:
 
                 fileName = file["name"]
-                fileTypes = ["svs", "ndpi"]
+                fileTypes = ["jpg"]
 
                 if any([fileName.endswith(val) for val in fileTypes]):
 
@@ -476,14 +477,13 @@ def getSummaryStats(gc, collectionID=None, folderID=None):
 
     folders = pd.DataFrame(df.value_counts(subset=["folder_name", "year", "state"]))
     folders.reset_index(inplace=True)
-    print(folders.head())
 
     stateList = ["valid", "invalid", "control"]
 
     folders[stateList] = None
     folders["uid"] = folders["folder_name"] + folders["year"]
 
-    folders.rename(columns={0: "count"}, inplace=True)
+    folders.rename(columns={0: "count", "folder_name": "case"}, inplace=True)
 
     uids = folders["uid"].unique().tolist()
 
@@ -502,25 +502,22 @@ def getSummaryStats(gc, collectionID=None, folderID=None):
     print(f"Valid Count {valid}\n\nInvalid Count: {invalid}\n\nControl Count: {control}")
 
 
-if __name__ == "__main__":
-    server = "candygram"
-    apiUrl = f"http://{server}.neurology.emory.edu:8080/api/v1"
+def getMissingBrainRegion():
+    summaryStats = "./summaryStats.csv"
+    if os.path.exists(summaryStats):
+        df = pd.read_csv(summaryStats)
 
-    # initializing connection with server via girder_client
-    gc = girder_client.GirderClient(apiUrl=apiUrl)
+        metaData = df["meta"].map((lambda x: x.split("{")[-1] if not pd.isna(x) and "npSchema" in x else None))
+        metaData.dropna(inplace=True)
 
-    # authenticating connection to server
-    gc.authenticate(interactive=True)
+        filt = metaData.map((lambda x: True if "regionName" in x else False))
+        filt = df.index.isin(metaData[~filt].index)
 
-    # this is the folderID of the ADRC Collection
-    folderID, parentType = "638e2da11f75016b81fda12f", "collection"
+        missingBrainRegion = df.loc[filt, "folder_name"].value_counts()
+        missingBrainRegion.name = "Count"
+        missingBrainRegion.index.name = "Case ID"
 
-    # NOTE: .ProjectMetadata collection seems to have a copy of the json schema as its metadata
-    # perhaps in the future we just pull that and load it as the schema, so that we don't need it locally
-    schemaPath = "adrcNpSchema.json"
-# blankMetadata(collectionID=folderID)
-# populateMetadata(collectionID=folderID)
-# auditMetadata(collectionID=folderID, outputRecords=True)
+        missingBrainRegion.to_csv("./missing_brain_regions_by_case_id.csv")
 
 
 #  mapping of select items seen returned from girder_client api calls
